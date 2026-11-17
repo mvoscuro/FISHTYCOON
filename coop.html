@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#06323d">
+<title>Maldivian Fishery Tycoon — Co-op Kitchen</title>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/loaders/GLTFLoader.js"></script>
+<style>
+:root{--deep:#052b35;--turq:#1cc8c0;--foam:#d8f6f2;--sand:#fff8ea;--sand2:#f3e7cd;--ink:#11343b;--mute:#5d7b80;--coral:#ff6a4d;--coral2:#e24f33;--gold:#f4b82e}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--deep);overscroll-behavior:none;overflow:hidden}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);user-select:none;-webkit-user-select:none;touch-action:none}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer;padding:0}
+#app{position:fixed;inset:0;overflow:hidden;background:#9fd4e4}
+#view{position:absolute;inset:0}
+#view canvas{display:block;width:100%;height:100%}
+#tags{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.nm{position:absolute;transform:translate(-50%,-100%);color:#fff;font-size:12px;font-weight:800;padding:2px 8px;border-radius:10px;white-space:nowrap;text-align:center;line-height:1.25}
+.nm small{display:block;font-size:11px;font-weight:700;background:rgba(255,255,255,.92);color:#11343b;border-radius:6px;padding:0 5px;margin:1px -4px 2px}
+.bar{position:absolute;transform:translate(-50%,-50%);width:46px;height:8px;border-radius:4px;background:rgba(0,0,0,.45);overflow:hidden;border:1px solid rgba(255,255,255,.7)}
+.bar i{display:block;height:100%;background:#7cf0a0}
+.bar.warn{animation:warn .35s infinite alternate}
+.bar.warn i{background:#ff5a3a}
+@keyframes warn{from{transform:translate(-50%,-50%) scale(1)}to{transform:translate(-50%,-50%) scale(1.25)}}
+.ico{position:absolute;transform:translate(-50%,-100%);font-size:20px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.5))}
+/* HUD */
+#hud{position:absolute;left:0;right:0;top:0;padding:calc(6px + env(safe-area-inset-top)) 8px 0;display:none;align-items:flex-start;gap:6px;pointer-events:none}
+#hud.on{display:flex}
+#orders{flex:1;display:flex;gap:6px;overflow:hidden;min-width:0}
+.ord{width:96px;flex:none;background:var(--sand);border-radius:10px;padding:5px 6px 6px;box-shadow:0 3px 0 rgba(0,0,0,.25);text-align:center;animation:pop .25s}
+.ord b{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ord .ri{font-size:22px;line-height:1.15}
+.ord .ing{font-size:13px;letter-spacing:1px}
+.ord .tb{height:6px;border-radius:3px;background:var(--sand2);overflow:hidden;margin-top:3px}
+.ord .tb i{display:block;height:100%;background:#3cbf6c}
+.ord.late .tb i{background:var(--coral)}
+.ord.late{animation:shake .4s infinite}
+@keyframes pop{from{transform:scale(.6)}to{transform:none}}
+@keyframes shake{0%,100%{transform:none}25%{transform:translateX(-2px)}75%{transform:translateX(2px)}}
+#clock{flex:none;background:rgba(5,43,53,.86);color:#fff;border-radius:12px;padding:5px 10px;text-align:right;min-width:78px}
+#clock b{display:block;font-size:20px;line-height:1.1}
+#clock span{font-size:14px;font-weight:800;color:var(--gold)}
+#quit{pointer-events:auto;flex:none;background:rgba(5,43,53,.86);color:#fff;border-radius:12px;width:36px;height:36px;font-size:16px}
+#toast{position:absolute;left:50%;top:40%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:6px;pointer-events:none;z-index:6}
+#toast div{background:rgba(5,30,36,.92);color:#fff;border-radius:12px;padding:8px 14px;font-weight:700;font-size:15px;animation:tin 1.6s forwards;white-space:nowrap}
+#toast div.good{background:#1a9c5b}
+#toast div.bad{background:var(--coral2)}
+@keyframes tin{0%{opacity:0;transform:translateY(10px)}10%,80%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-14px)}}
+/* touch pads */
+#pads{position:absolute;inset:0;pointer-events:none;display:none}
+#pads.on{display:block}
+.pad{position:absolute;bottom:calc(14px + env(safe-area-inset-bottom));width:46%;height:42%;pointer-events:auto;touch-action:none}
+.pad.p1{left:0}.pad.p2{right:0}
+.pad .joy{position:absolute;width:110px;height:110px;border-radius:50%;background:rgba(255,255,255,.16);border:2px solid rgba(255,255,255,.5);display:none;transform:translate(-50%,-50%)}
+.pad .joy i{position:absolute;left:50%;top:50%;width:44px;height:44px;margin:-22px 0 0 -22px;border-radius:50%;background:rgba(255,255,255,.85)}
+.pad .btns{position:absolute;bottom:4px;display:flex;flex-direction:column;gap:10px}
+.pad.p1 .btns{left:8px}.pad.p2 .btns{right:8px}
+.pad.solo{width:100%;left:0}
+.pad.solo .btns{right:14px;left:auto}
+.pb{width:70px;height:70px;border-radius:50%;color:#fff;font-weight:800;font-size:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;box-shadow:0 4px 0 rgba(0,0,0,.3);line-height:1.1}
+.pb span{font-size:22px}
+.pb.g{background:#1a9c5b}.pb.c{background:#2c7be5}
+.pb.down{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.3)}
+.pad .who{position:absolute;top:6px;font-size:12px;font-weight:800;color:#fff;background:rgba(0,0,0,.35);border-radius:999px;padding:2px 9px}
+.pad .who{top:auto;bottom:162px}.pad.p1 .who{left:8px}.pad.p2 .who{right:8px}.pad.solo .who{right:8px;left:auto}
+/* menu screens */
+.screen{position:absolute;inset:0;display:none;overflow-y:auto;-webkit-overflow-scrolling:touch;background:linear-gradient(180deg,#0b7f90,#053541);color:#fff;padding:calc(14px + env(safe-area-inset-top)) 14px 24px;z-index:8}
+.screen.on{display:block}
+.wrap{max-width:560px;margin:0 auto}
+h1{margin:4px 0 2px;font-size:24px}
+h2{font-size:13px;letter-spacing:1.2px;text-transform:uppercase;opacity:.85;margin:18px 2px 8px}
+.sub{color:var(--foam);opacity:.9;font-size:14px;margin:0 0 6px;line-height:1.4}
+.card{background:var(--sand);color:var(--ink);border-radius:16px;padding:12px;margin-bottom:10px}
+.tabs{display:flex;gap:6px;margin:10px 0}
+.tabs button{flex:1;background:rgba(255,255,255,.14);color:#fff;border-radius:12px;padding:11px 6px;font-weight:800}
+.tabs button.on{background:var(--turq);color:var(--deep)}
+.btn{background:var(--coral);color:#fff;border-radius:12px;padding:11px 14px;font-weight:800;box-shadow:0 3px 0 var(--coral2)}
+.btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--coral2)}
+.btn.ghost{background:rgba(255,255,255,.16);box-shadow:none;color:#fff}
+.btn.gray{background:#b9c9c4;box-shadow:none;color:var(--ink)}
+.btn.wide{display:block;width:100%;margin-top:8px}
+.lv{display:flex;align-items:center;gap:10px}
+.lv .em{font-size:34px;width:48px;text-align:center}
+.lv .tx{flex:1;min-width:0}
+.lv .tx b{display:block;font-size:16px}
+.lv .tx span{display:block;font-size:12.5px;color:var(--mute);line-height:1.35}
+.stars{color:var(--gold);font-size:18px;letter-spacing:2px}
+.stars .off{color:#d6cbb3}
+.lv.lock{opacity:.55}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.pc{display:flex;gap:6px}
+.pc button{flex:1;background:var(--sand2);border-radius:10px;padding:10px 0;font-weight:800}
+.pc button.on{background:var(--ink);color:#fff}
+.keys{font-size:12.5px;color:var(--mute);line-height:1.55}
+.keys b{color:var(--ink)}
+kbd{display:inline-block;background:#fff;border:1px solid #d9cfb8;border-bottom-width:2px;border-radius:5px;padding:0 5px;font-size:11.5px;font-family:inherit;color:var(--ink)}
+input.code{font:inherit;font-size:22px;font-weight:800;letter-spacing:6px;text-transform:uppercase;width:100%;text-align:center;padding:10px;border-radius:12px;border:2px solid var(--sand2);-webkit-user-select:text;user-select:text}
+.plist{display:flex;flex-direction:column;gap:6px;margin:8px 0}
+.plist div{display:flex;align-items:center;gap:8px;font-weight:700;font-size:14px}
+.plist i{width:14px;height:14px;border-radius:50%;display:inline-block}
+.big{font-size:34px;font-weight:900;letter-spacing:8px;text-align:center;margin:6px 0}
+#modal{position:absolute;inset:0;background:rgba(3,25,31,.78);display:none;align-items:center;justify-content:center;padding:20px;z-index:12}
+#modal.on{display:flex}
+#modal .box{background:var(--sand);border-radius:20px;padding:20px 18px;width:100%;max-width:420px;text-align:center;max-height:92%;overflow-y:auto}
+#modal h3{margin:4px 0 6px;font-size:21px}
+#modal p{margin:4px 0;color:var(--mute);font-size:14px;line-height:1.45}
+.bigstars{font-size:46px;letter-spacing:6px;margin:6px 0}
+.bigstars span{display:inline-block;color:#d6cbb3;transform:scale(.6);transition:transform .35s,color .35s}
+.bigstars span.on{color:var(--gold);transform:scale(1)}
+.score{font-size:34px;font-weight:900}
+@media (max-width:560px){.ord{width:74px;padding:4px 4px 5px}.ord .ri{font-size:18px}.ord b{font-size:10.5px}.ord .ing{font-size:11px;letter-spacing:0}#clock{min-width:64px;padding:4px 8px}#clock b{font-size:17px}}
+@media (max-height:520px){.pb{width:56px;height:56px;font-size:10.5px}.pb span{font-size:18px}.pad .btns{gap:6px}.pad{height:78%}.pad .who{bottom:128px}}
+.ico.crate{font-size:16px;opacity:.95}
+#load{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;z-index:20;background:#053541}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="view"></div>
+  <div id="tags"></div>
+  <div id="hud"><div id="orders"></div><div id="clock"><b id="tm">3:00</b><span id="sc">🪙 0</span></div><button id="quit" data-a="quit">✕</button></div>
+  <div id="pads"></div>
+  <div id="toast"></div>
+  <div id="menu" class="screen on"><div class="wrap" id="mwrap"></div></div>
+  <div id="modal"><div class="box" id="mbox"></div></div>
+  <div id="load">Loading the kitchen…</div>
+</div>
+<script>
+'use strict';
+/* =====================================================================
+   Maldivian Fishery Tycoon — Co-op Kitchen
+   Overcooked-style team cooking: 2-4 players share a kitchen split into
+   stations nobody can reach alone, and race timed orders for stars.
+   Part 1 is the game logic (no DOM; host-authoritative, tested headless
+   via window.__COOP). Part 2 is the online link (PeerJS). Part 3 draws it.
+   ===================================================================== */
+
+/* ---------------- recipes and ingredients ---------------- */
+const RECIPES = {
+  valhoamas:{n:'Valhoamas', ico:'🐟', need:['smoked'], pts:20, life:65},
+  garudhiya:{n:'Garudhiya', ico:'🍲', need:['soup'], pts:30, life:75},
+  masuni:   {n:'Mas huni', ico:'🥥', need:['grated','onionc','smoked'], pts:45, life:90}
+};
+const ING = {tuna:'🐟', loin:'🔪', smoked:'🟤', burnt:'⚫', coconut:'🥥', grated:'⚪', onion:'🧅', onionc:'🧅', soup:'🍲'};
+const CHOP = {tuna:'loin', coconut:'grated', onion:'onionc'}, CHOP_T = {tuna:3.0, coconut:2.4, onion:2.0};
+const PLATEABLE = {smoked:1, grated:1, onionc:1};
+const CRATE = {T:'tuna', C:'coconut', O:'onion'};
+const SMOKE_T = 8, SMOKE_BURN = 10, POT_N = 2, POT_T = 10, POT_BURN = 12, WASH_T = 1.6, SCRAPE_T = 1.5, RETURN_T = 6, BELT_T = 1.0;
+const TILE = 1.2, SPEED = 4.3, RAD = 0.32;
+const PCOL = [0x2f6fd0, 0xd04a3a, 0x3aa05a, 0xe0a628], PNAME = ['Blue', 'Red', 'Green', 'Gold'];
+/* Map legend: . floor  1-4 spawns (1,3 on side A, 2,4 on side B)  # counter  W wall  T/C/O crates (tuna, coconut, onion)
+   B cutting board  S smoker  K stove with pot  X sink  P clean plates  R dirty-plate return  D serving hatch
+   Z bin  > < ^ v conveyor  ~ water  = gangplank (only walkable while the boats are lashed together) */
+const LEVELS = [
+  {id:1, name:'Beach Smokehouse', em:'🏝️', env:'beach', time:180, recipes:['valhoamas','garudhiya'], every:[14, 20], maxO:4, plates:4, stars:[60, 140, 220], unlock:0,
+   blurb:'A counter splits the shack. One side cuts fish and washes plates, the other smokes, simmers and serves. Pass food and plates across.',
+   map:['#T#B##S#K##',
+        'Z....#....D',
+        '#.1..#..2.#',
+        'T....#....S',
+        '#.3..#..4.#',
+        'R....#....Z',
+        '#XP#B####K#']},
+  {id:2, name:'Rocking Dhonis', em:'⛵', env:'sea', time:200, recipes:['valhoamas','masuni'], every:[16, 22], maxO:4, plates:4, stars:[70, 160, 260], unlock:2, bridge:[10, 5],
+   blurb:'Two dhonis lashed together at sea. The gangplanks only hold while the boats swing close, so time every crossing.',
+   map:['#T#C#~~#S#S#',
+        'Z...O~~....D',
+        '#.1..==..2.#',
+        'B...#~~#...#',
+        '#.3.B~~..4.#',
+        'R....==....Z',
+        '#XP##~~#S###']},
+  {id:3, name:'Harbour Canteen', em:'⚓', env:'harbour', time:210, recipes:['valhoamas','garudhiya','masuni'], every:[12, 17], maxO:5, plates:5, stars:[80, 190, 300], unlock:5,
+   blurb:'The prep room and the cook line are walled apart. Only the conveyor belt carries food and plates through. Best with 3 or 4 cooks.',
+   map:['#T#C#OW#S#S##',
+        'Z.....W.....D',
+        'B.1..>>>..2.#',
+        '#.....W.....K',
+        'B.3...W...4.#',
+        'R.....W.....#',
+        '#.....W.....S',
+        '#XP###W##K#Z#']}
+];
+const PFACTOR = [1, 1, 1, 1.15, 1.3];      // star thresholds rise with more cooks
+const isFloor = k => k === '.' || (k >= '1' && k <= '4');
+const BELT = {'>':[1, 0], '<':[-1, 0], '^':[0, -1], 'v':[0, 1]};
+
+/* ---------------- game state ---------------- */
+let G = null, rng = Math.random;
+function newGame(li, names){
+  const L = LEVELS[li], H = L.map.length, W = L.map[0].length, tiles = [], spawnA = [], spawnB = [];
+  for (let z = 0; z < H; z++) for (let x = 0; x < W; x++){
+    const k = L.map[z][x], t = {k, x, z, s:null};
+    if (k === '#' || k === 'B' || BELT[k] || k === 'D') t.s = {it:null, ch:0, mv:0};
+    else if (k === 'S') t.s = {it:null, t:0};
+    else if (k === 'K') t.s = {n:0, st:'e', t:0, sc:0};
+    else if (k === 'X') t.s = {d:0, w:0};
+    else if (k === 'P') t.s = {n:0};
+    else if (k === 'R') t.s = {n:0, q:[]};
+    if (k === '1' || k === '3') spawnA.push(t); if (k === '2' || k === '4') spawnB.push(t);
+    tiles.push(t);
+  }
+  const racks = tiles.filter(t => t.k === 'P'); for (let i = 0; i < L.plates; i++) racks[i % racks.length].s.n++;
+  const pl = names.map((n, i) => { const sp = (i % 2 ? spawnB : spawnA)[Math.floor(i / 2)] || (i % 2 ? spawnB : spawnA)[0], p = wpos(sp.x, sp.z, W, H);
+    return {i, name:n, x:p[0], z:p[1], fx:0, fz:1, h:null, act:0, tg:-1, in:{mx:0, mz:0, g:0, a:0}, lg:0}; });
+  G = {li, W, H, tiles, pl, clock:0, time:L.time, score:0, orders:[], nextO:1.5, served:0, failed:0, ev:[], evn:0, over:false, bridge:1, started:true};
+  return G;
+}
+const wpos = (x, z, W, H) => [(x - (W - 1) / 2) * TILE, (z - (H - 1) / 2) * TILE];
+const tileAt = (ix, iz) => (ix < 0 || iz < 0 || ix >= G.W || iz >= G.H) ? null : G.tiles[iz * G.W + ix];
+const walkable = t => !!t && (isFloor(t.k) || (t.k === '=' && G.bridge));
+function blocked(x, z){
+  const r = RAD, x0 = Math.floor((x - r) / TILE + G.W / 2), x1 = Math.floor((x + r) / TILE + G.W / 2), z0 = Math.floor((z - r) / TILE + G.H / 2), z1 = Math.floor((z + r) / TILE + G.H / 2);
+  for (let iz = z0; iz <= z1; iz++) for (let ix = x0; ix <= x1; ix++) if (!walkable(tileAt(ix, iz))) return true;
+  return false;
+}
+function ev(e, o){ G.ev.push(Object.assign({id:++G.evn, e}, o || {})); if (G.ev.length > 24) G.ev.shift(); }
+
+/* which station a cook is facing: the tile in front, or the best-aligned neighbour */
+function target(p){
+  const ix = Math.floor(p.x / TILE + G.W / 2), iz = Math.floor(p.z / TILE + G.H / 2); let best = -1, bs = -9;
+  for (const [dx, dz] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]]){
+    const t = tileAt(ix + dx, iz + dz); if (!t || walkable(t) || t.k === 'W' || t.k === '~' || t.k === '=') continue;
+    const c = wpos(t.x, t.z, G.W, G.H), vx = c[0] - p.x, vz = c[1] - p.z, d = Math.hypot(vx, vz), dot = (vx * p.fx + vz * p.fz) / d;
+    if (d > 1.45 || dot < 0.45) continue; const sc = dot - d * 0.35; if (sc > bs){ bs = sc; best = t.z * G.W + t.x; }
+  }
+  return best;
+}
+/* plates: what can go together (any subset of one of this level's recipes) */
+function plateOk(c, add){
+  const want = c.concat([add]).sort().join(',');
+  return LEVELS[G.li].recipes.some(r => { const need = RECIPES[r].need.slice(); for (const x of c.concat([add])){ const i = need.indexOf(x); if (i < 0) return false; need.splice(i, 1); } return true; }) && !!want;
+}
+function nearestRack(t){ let b = null, bd = 1e9; G.tiles.forEach(r => { if (r.k === 'P'){ const d = Math.abs(r.x - t.x) + Math.abs(r.z - t.z); if (d < bd){ bd = d; b = r; } } }); return b; }
+
+/* pick up / put down */
+function grab(p){
+  if (p.tg < 0) return; const t = G.tiles[p.tg], s = t.s, h = p.h;
+  if (CRATE[t.k]){ if (!h) p.h = {k:CRATE[t.k]}; else if (h.k === CRATE[t.k]) p.h = null; return; }
+  switch (t.k){
+    case 'P': if (!h && s.n > 0){ s.n--; p.h = {k:'plate', c:[]}; } else if (h && h.k === 'plate' && !h.c.length){ s.n++; p.h = null; } return;
+    case 'R': if (!h && s.n > 0){ p.h = {k:'dirty', n:s.n}; s.n = 0; } else if (h && h.k === 'dirty'){ s.n += h.n; p.h = null; } return;
+    case 'X': if (h && h.k === 'dirty'){ s.d += h.n; p.h = null; } return;
+    case 'Z': if (!h) return; if (h.k === 'plate') h.c = []; else if (h.k !== 'dirty'){ p.h = null; ev('bin'); } return;
+    case 'S':
+      if (!h && s.it){ p.h = s.it; s.it = null; s.t = 0; }
+      else if (h && !s.it && h.k === 'loin'){ s.it = h; s.t = 0; p.h = null; }
+      else if (h && h.k === 'plate' && s.it && s.it.k === 'smoked' && plateOk(h.c, 'smoked')){ h.c.push('smoked'); s.it = null; s.t = 0; }
+      return;
+    case 'K':
+      if (h && h.k === 'loin' && s.st === 'e' && s.n < POT_N){ s.n++; p.h = null; if (s.n >= POT_N){ s.st = 'c'; s.t = 0; } }
+      else if (h && h.k === 'plate' && !h.c.length && s.st === 'd'){ h.c.push('soup'); s.n = 0; s.st = 'e'; s.t = 0; }
+      return;
+    case 'D':
+      if (h && h.k === 'plate' && h.c.length){ serve(h.c); p.h = null; G.tiles.filter(r => r.k === 'R').forEach((r, i) => { if (i === 0) r.s.q.push(RETURN_T); }); }
+      return;
+  }
+  if (!s || !('it' in s)) return;                         // counters, boards, belts
+  const it = s.it;
+  if (!h && it){ p.h = it; s.it = null; s.ch = 0; s.mv = 0; }
+  else if (h && !it){ s.it = h; p.h = null; s.ch = 0; s.mv = 0; }
+  else if (h && it && h.k === 'plate' && PLATEABLE[it.k] && plateOk(h.c, it.k)){ h.c.push(it.k); s.it = null; s.ch = 0; }
+  else if (h && it && it.k === 'plate' && PLATEABLE[h.k] && plateOk(it.c, h.k)){ it.c.push(h.k); p.h = null; }
+  else if (h && it && h.k === 'dirty' && it.k === 'dirty'){ it.n += h.n; p.h = null; }
+}
+function serve(c){
+  const key = c.slice().sort().join(','), oi = G.orders.findIndex(o => RECIPES[o.r].need.slice().sort().join(',') === key);
+  if (oi < 0){ ev('wrong'); return; }
+  const o = G.orders[oi], R = RECIPES[o.r], tip = Math.ceil(8 * o.t / o.max), pts = R.pts + tip;
+  G.score += pts; G.served++; G.orders.splice(oi, 1); ev('serve', {r:o.r, pts, tip});
+}
+/* hold-to-work: chop, wash, scrape a burnt pot */
+function work(p, dt){
+  p.act = 0; if (p.tg < 0 || p.h) return; const t = G.tiles[p.tg], s = t.s;
+  if (t.k === 'B' && s.it && CHOP[s.it.k]){ p.act = 1; s.ch += dt / CHOP_T[s.it.k]; if (s.ch >= 1){ s.it = {k:CHOP[s.it.k]}; s.ch = 0; ev('chop'); } }
+  else if (t.k === 'X' && s.d > 0){ p.act = 2; s.w += dt / WASH_T; if (s.w >= 1){ s.d--; s.w = 0; const r = nearestRack(t); if (r) r.s.n++; } }
+  else if (t.k === 'K' && s.st === 'b'){ p.act = 3; s.sc += dt / SCRAPE_T; if (s.sc >= 1){ s.st = 'e'; s.n = 0; s.t = 0; s.sc = 0; } }
+}
+function step(dt){
+  if (!G || G.over) return;
+  const L = LEVELS[G.li]; G.clock += dt; G.time = Math.max(0, G.time - dt);
+  if (L.bridge){ const per = L.bridge[0] + L.bridge[1]; G.bridge = (G.clock % per) < L.bridge[0] ? 1 : 0; }
+  for (const p of G.pl){
+    const m = Math.hypot(p.in.mx, p.in.mz);
+    if (m > 0.15){ const k = Math.min(1, m) / m, vx = p.in.mx * k * SPEED * dt, vz = p.in.mz * k * SPEED * dt; p.fx = p.in.mx / m; p.fz = p.in.mz / m;
+      if (!blocked(p.x + vx, p.z)) p.x += vx; if (!blocked(p.x, p.z + vz)) p.z += vz; }
+    if (blocked(p.x, p.z)) rescue(p);                    // a plank lifted under someone: step back onto the deck
+    p.tg = target(p);
+    if (p.in.g !== p.lg){ p.lg = p.in.g; grab(p); }
+    if (p.in.a) work(p, dt); else p.act = 0;
+  }
+  for (let i = 0; i < G.pl.length; i++) for (let j = i + 1; j < G.pl.length; j++){       // cooks bump, they don't overlap
+    const a = G.pl[i], b = G.pl[j], dx = b.x - a.x, dz = b.z - a.z, d = Math.hypot(dx, dz);
+    if (d < 0.62 && d > 1e-4){ const push = (0.62 - d) / 2, ux = dx / d * push, uz = dz / d * push;
+      if (!blocked(a.x - ux, a.z - uz)){ a.x -= ux; a.z -= uz; } if (!blocked(b.x + ux, b.z + uz)){ b.x += ux; b.z += uz; } }
+  }
+  for (const t of G.tiles){ const s = t.s; if (!s) continue;
+    if (t.k === 'S' && s.it){ s.t += dt;
+      if (s.it.k === 'loin' && s.t >= SMOKE_T){ s.it = {k:'smoked'}; s.t = 0; }
+      else if (s.it.k === 'smoked' && s.t >= SMOKE_BURN){ s.it = {k:'burnt'}; s.t = 0; ev('burn'); } }
+    else if (t.k === 'K'){ if (s.st === 'c'){ s.t += dt; if (s.t >= POT_T){ s.st = 'd'; s.t = 0; } } else if (s.st === 'd'){ s.t += dt; if (s.t >= POT_BURN){ s.st = 'b'; s.t = 0; ev('burn'); } } }
+    else if (t.k === 'R' && s.q.length){ s.q = s.q.map(v => v - dt); while (s.q.length && s.q[0] <= 0){ s.q.shift(); s.n++; } }
+  }
+  for (const t of G.tiles){ const d = BELT[t.k]; if (!d || !t.s.it) continue;            // conveyor: items creep to the next belt tile
+    const nx = tileAt(t.x + d[0], t.z + d[1]); if (!nx || !BELT[nx.k] || nx.s.it || nx.s.moved === G.clock){ t.s.mv = 0; continue; }
+    t.s.mv += dt / BELT_T; if (t.s.mv >= 1){ nx.s.it = t.s.it; nx.s.mv = 0; nx.s.moved = G.clock; t.s.it = null; t.s.mv = 0; } }
+  G.nextO -= dt;                                           // orders
+  if (G.nextO <= 0 && G.orders.length < L.maxO && G.time > 20){ const r = L.recipes[Math.floor(rng() * L.recipes.length)], life = RECIPES[r].life + (G.pl.length < 3 ? 8 : 0);
+    G.orders.push({r, t:life, max:life, id:G.evn + 1}); ev('order', {r}); G.nextO = L.every[0] + rng() * (L.every[1] - L.every[0]) - (G.orders.length < 2 ? 6 : 0); }
+  for (let i = G.orders.length - 1; i >= 0; i--){ const o = G.orders[i]; o.t -= dt; if (o.t <= 0){ G.orders.splice(i, 1); G.failed++; G.score = Math.max(0, G.score - 10); ev('expire', {r:o.r}); } }
+  if (G.time <= 0){ G.over = true; ev('over'); }
+}
+function rescue(p){ let best = null, bd = 9; G.tiles.forEach(t => { if (!walkable(t)) return; const c = wpos(t.x, t.z, G.W, G.H), d = Math.hypot(c[0] - p.x, c[1] - p.z); if (d < bd){ bd = d; best = c; } }); if (best){ p.x = best[0]; p.z = best[1]; } }
+function starsFor(li, score, n){ const st = LEVELS[li].stars.map(v => Math.round(v * PFACTOR[n])); return score >= st[2] ? 3 : score >= st[1] ? 2 : score >= st[0] ? 1 : 0; }
+/* the network snapshot: everything a guest needs to draw the kitchen */
+function snapshot(){ const r = v => Math.round(v * 100) / 100;
+  return {t:'st', li:G.li, c:r(G.clock), tm:r(G.time), sc:G.score, o:G.orders.map(o => [o.r, r(o.t), o.max, o.id]), br:G.bridge, ov:G.over ? 1 : 0, sv:G.served, fl:G.failed,
+    p:G.pl.map(p => [r(p.x), r(p.z), r(p.fx), r(p.fz), p.h, p.act, p.tg, p.name]), s:G.tiles.map(t => t.s), ev:G.ev.slice(-12)}; }
+function fromSnapshot(m){
+  const L = LEVELS[m.li], H = L.map.length, W = L.map[0].length;
+  return {li:m.li, W, H, clock:m.c, time:m.tm, score:m.sc, orders:m.o.map(o => ({r:o[0], t:o[1], max:o[2], id:o[3]})), bridge:m.br, over:!!m.ov, served:m.sv, failed:m.fl, ev:m.ev,
+    pl:m.p.map((p, i) => ({i, x:p[0], z:p[1], fx:p[2], fz:p[3], h:p[4], act:p[5], tg:p[6], name:p[7]})), tiles:L.map.join('').split('').map((k, i) => ({k, x:i % W, z:Math.floor(i / W), s:m.s[i]}))};
+}
+const API = {LEVELS, RECIPES, newGame, step, snapshot, fromSnapshot, target, starsFor, get G(){ return G; }, set rng(f){ rng = f; }};
+if (typeof window !== 'undefined') window.__COOP = API; else globalThis.__COOP = API;
+
+/* =====================================================================
+   PART 2+3 — online link and drawing (browser only)
+   ===================================================================== */
+if (typeof document !== 'undefined') (function(){
+  const $ = id => document.getElementById(id);
+  const SAVE = 'mft_coop_v1', MAIN = 'mft_3d_v4';
+  let prog = {}; try { prog = JSON.parse(localStorage.getItem(SAVE) || '{}'); } catch(e){}
+  prog.stars = prog.stars || {}; prog.best = prog.best || {}; prog.pend = prog.pend || 0;
+  const saveProg = () => { try { localStorage.setItem(SAVE, JSON.stringify(prog)); } catch(e){} };
+  let myName = 'Cook'; try { const m = JSON.parse(localStorage.getItem(MAIN) || '{}'); if (m.name) myName = m.name; } catch(e){}
+  if (prog.name) myName = prog.name;
+  const totalStars = () => Object.values(prog.stars).reduce((a, b) => a + b, 0);
+  const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;'})[c]);
+  const fmtT = s => Math.floor(s / 60) + ':' + String(Math.floor(s % 60)).padStart(2, '0');
+  const touch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  function toast(msg, cls){ const d = document.createElement('div'); d.textContent = msg; if (cls) d.className = cls; const t = $('toast'); while (t.children.length > 2) t.removeChild(t.firstChild); t.appendChild(d); setTimeout(() => d.remove(), 1600); }
+
+  /* ---------------- sound: tiny synthesised effects ---------------- */
+  let AC = null;
+  function beep(f, d, type, vol, slide){ try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); const o = AC.createOscillator(), g = AC.createGain(), t = AC.currentTime;
+    o.type = type || 'sine'; o.frequency.setValueAtTime(f, t); if (slide) o.frequency.exponentialRampToValueAtTime(slide, t + d); g.gain.setValueAtTime(vol || 0.12, t); g.gain.exponentialRampToValueAtTime(0.001, t + d);
+    o.connect(g); g.connect(AC.destination); o.start(t); o.stop(t + d); } catch(e){} }
+  const SFX = {serve:() => { beep(880, 0.12); setTimeout(() => beep(1320, 0.25), 90); }, wrong:() => beep(160, 0.3, 'square', 0.08), expire:() => beep(300, 0.4, 'sawtooth', 0.06, 120),
+    chop:() => beep(520, 0.05, 'triangle', 0.06), burn:() => beep(200, 0.5, 'sawtooth', 0.05, 90), order:() => beep(660, 0.08, 'sine', 0.06), grab:() => beep(420, 0.04, 'triangle', 0.04)};
+
+  /* ---------------- 3D ---------------- */
+  const THREE = window.THREE; let R = null;           // renderer bundle
+  function init3D(done){
+    if (!THREE || !THREE.GLTFLoader){ $('load').textContent = 'The 3D engine could not load. Check your internet connection.'; return; }
+    const renderer = new THREE.WebGLRenderer({antialias:true}); renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    renderer.outputEncoding = THREE.sRGBEncoding; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.8;
+    renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; $('view').appendChild(renderer.domElement);
+    const scene = new THREE.Scene(); scene.background = lin(0xa9d6e6); scene.fog = new THREE.Fog(lin(0xa9d6e6), 45, 110);
+    const camera = new THREE.PerspectiveCamera(36, 1, 0.5, 300);
+    const hemi = new THREE.HemisphereLight(0xdcefff, 0xd9c9a3, 0.55); scene.add(hemi);
+    const sun = new THREE.DirectionalLight(0xfff1d6, 1.25); sun.position.set(8, 16, 6); sun.castShadow = true; sun.shadow.mapSize.set(2048, 2048);
+    const sc = sun.shadow.camera; sc.left = -14; sc.right = 14; sc.top = 14; sc.bottom = -14; sc.far = 60; sun.shadow.bias = -0.0005; sun.shadow.normalBias = 0.03; scene.add(sun);
+    const L = new THREE.GLTFLoader(), fail = f => () => { $('load').textContent = 'Could not load assets/' + f + '. Keep the assets folder next to coop.html and open it from a web address.'; };
+    L.load('assets/island.glb', g1 => L.load('assets/coop.glb', g2 => {
+      const libs = [g1.scene, g2.scene]; libs.forEach(l => l.traverse(o => { if (o.isMesh){ o.castShadow = o.receiveShadow = true; if (o.material) o.material.envMapIntensity = 0.4; } }));
+      R = {renderer, scene, camera, sun, libs, v:new THREE.Vector3(), W:1, H:1, level:null, env:null}; window.__COOPR = R;
+      try { const pm = new THREE.PMREMGenerator(renderer), sk = new THREE.Scene(); sk.background = new THREE.Color(0xcfe6f2); scene.environment = pm.fromScene(sk, 0.04).texture; } catch(e){}
+      resize(); addEventListener('resize', resize); $('load').style.display = 'none'; done();
+    }, undefined, fail('coop.glb')), undefined, fail('island.glb'));
+  }
+  function inst(name, x, y, z, parent, ry, s){ for (const l of R.libs){ const src = l.getObjectByName(name); if (src){ const o = src.clone(true); o.position.set(x || 0, y || 0, z || 0); o.rotation.y = ry || 0; if (s) o.scale.setScalar(s); (parent || R.scene).add(o); return o; } } throw new Error('missing model ' + name); }
+  function tint(o, matName, hex){ o.traverse(c => { if (c.isMesh && c.material && c.material.name === matName){ c.material = c.material.clone(); c.material.color.setHex(hex).convertSRGBToLinear(); } }); return o; }
+  const lin = h => new THREE.Color(h).convertSRGBToLinear();      // hex colours are sRGB; r147 treats them as linear
+  const MC = {}; const col = (c, r) => MC[c] || (MC[c] = new THREE.MeshStandardMaterial({color:lin(c), roughness:r || 0.85}));
+  function resize(){ if (!R) return; R.W = innerWidth; R.H = innerHeight; R.renderer.setSize(R.W, R.H, false); fitCam(); }
+  /* frame the whole kitchen as large as the screen allows, between the order tickets and the thumb buttons.
+     On a portrait phone the kitchen is turned so its long side runs up the screen. */
+  function fitCam(){
+    if (!R || !R.level) return; const c = R.camera, L = R.level, aspect = R.W / R.H, kw = L.W * TILE, kd = L.H * TILE, el = 0.98;
+    R.yaw = (aspect < 0.95 && kw > kd) ? Math.PI / 2 : 0;
+    const small = R.W < 560, top = (small ? 82 : 96) + 6, land = touch && R.W > R.H, bot = touch && !land ? 172 : 14, side = land ? (R.H <= 520 ? 76 : 90) : 6;   // thumb buttons sit below (portrait) or at the sides (landscape)
+    const rw = R.W - side * 2, rh = Math.max(80, R.H - top - bot);
+    c.aspect = aspect; c.clearViewOffset();
+    const pts = []; for (const sx of [-1, 1]) for (const sz of [-1, 1]) for (const y of [0, 1.9]) pts.push(new THREE.Vector3(sx * (kw / 2 + 0.25), y, sz * (kd / 2 + 0.25)));
+    const place = d => { c.position.set(Math.sin(R.yaw) * d * Math.cos(el), d * Math.sin(el), Math.cos(R.yaw) * d * Math.cos(el)); c.lookAt(0, 0.5, 0); c.updateMatrixWorld(); c.updateProjectionMatrix(); };
+    const box = () => { let a = 1e9, b = -1e9, e = 1e9, f = -1e9; pts.forEach(p => { const v = p.clone().project(c), x = (v.x * 0.5 + 0.5) * R.W, y = (-v.y * 0.5 + 0.5) * R.H; a = Math.min(a, x); b = Math.max(b, x); e = Math.min(e, y); f = Math.max(f, y); }); return [a, b, e, f]; };
+    let lo = 4, hi = 300; for (let i = 0; i < 28; i++){ const m = (lo + hi) / 2; place(m); const bb = box(); if (bb[1] - bb[0] <= rw && bb[3] - bb[2] <= rh) hi = m; else lo = m; }
+    place(hi); const bb = box();
+    c.setViewOffset(R.W, R.H, (bb[0] + bb[1]) / 2 - (side + rw / 2), (bb[2] + bb[3]) / 2 - (top + rh / 2), R.W, R.H); c.updateProjectionMatrix();
+    R.scene.fog.near = hi + 10; R.scene.fog.far = hi + 80;
+  }
+  /* build a level's kitchen */
+  function buildLevel(li){
+    const L = LEVELS[li], H = L.map.length, W = L.map[0].length;
+    if (R.level){ R.scene.remove(R.level.g); R.level.players.forEach(c => R.scene.remove(c)); } if (R.env) R.scene.remove(R.env);
+    const g = new THREE.Group(); R.scene.add(g); const env = new THREE.Group(); R.scene.add(env);
+    const lv = {li, W, H, g, tiles:[], planks:[], players:[], hl:[]};
+    /* surroundings */
+    const ground = L.env === 'sea' ? null : new THREE.Mesh(new THREE.PlaneGeometry(80, 44), col(L.env === 'harbour' ? 0x8c8c88 : 0xd9c398, 0.95));
+    if (ground){ ground.rotation.x = -Math.PI / 2; ground.position.set(0, -0.05, 9); ground.receiveShadow = true; env.add(ground); }
+    const sea = new THREE.Mesh(new THREE.PlaneGeometry(220, 220, 40, 40), new THREE.MeshStandardMaterial({color:lin(0x13849e), roughness:0.22, metalness:0.0, envMapIntensity:0.5, transparent:true, opacity:0.95}));
+    sea.rotation.x = -Math.PI / 2; sea.position.set(0, -0.3, 0); sea.receiveShadow = true; env.add(sea); lv.sea = sea;
+    if (L.env === 'beach') [[-12,-5],[-13,1.5],[12.5,-4],[13,2],[-7,-9],[6,-9.5],[0,-11],[-14,-8],[14,-8.5]].forEach((p, i) => inst(['palm_a','palm_b','palm_c'][i % 3], p[0], -0.05, p[1], env, i * 1.3, 0.7));
+    if (L.env === 'harbour'){ const cg = new THREE.BoxGeometry(5.6, 2.4, 2.3), rib = new THREE.BoxGeometry(5.7, 0.08, 2.4);       // stacked containers behind the canteen
+      [[-11,-13.0,0],[-5,-13.3,1],[1,-13.1,2],[7,-13.2,3],[13,-13.0,4],[-8,-13.1,5,1],[4,-13.2,0,1]].forEach(c => { const m = new THREE.Mesh(cg, col([0x2a5d9f,0xa4532a,0x2f7d4f,0x8a8f94,0xc9a227,0x7b2d3a][c[2]], 0.7)); m.position.set(c[0], 1.2 + (c[3] ? 2.42 : 0), c[1]); m.castShadow = m.receiveShadow = true; env.add(m);
+        for (let k = 0; k < 2; k++){ const r = new THREE.Mesh(rib, col(0x3b3f44, 0.6)); r.position.set(c[0], (c[3] ? 2.42 : 0) + 0.05 + k * 2.3, c[1]); env.add(r); } }); }
+    /* hulls under the two dhonis */
+    if (L.env === 'sea'){ const wx = [...L.map[0]].findIndex(k => k === '~');
+      [[0, wx - 1], [wx + 2, W - 1]].forEach(([a, b]) => { const x0 = (a - (W - 1) / 2) * TILE - TILE / 2, x1 = (b - (W - 1) / 2) * TILE + TILE / 2, hull = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0 + 0.6, 1.1, H * TILE + 0.6), col(0x7a4f2c, 0.6));
+        hull.position.set((x0 + x1) / 2, -0.58, 0); hull.castShadow = hull.receiveShadow = true; g.add(hull); const rim = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0 + 0.7, 0.12, H * TILE + 0.7), col(0xf1ece0, 0.6)); rim.position.set((x0 + x1) / 2, -0.1, 0); g.add(rim);
+        const bow = new THREE.Mesh(new THREE.ConeGeometry((x1 - x0) / 2 + 0.3, 3, 4), col(0x7a4f2c, 0.6)); bow.rotation.set(-Math.PI / 2, Math.PI / 4, 0); bow.scale.set(1, 1, 0.45); bow.position.set((x0 + x1) / 2, -0.58, -(H * TILE) / 2 - 1.6); g.add(bow); }); }
+    for (let z = 0; z < H; z++) for (let x = 0; x < W; x++){
+      const k = L.map[z][x], c = wpos(x, z, W, H), tg = new THREE.Group(); tg.position.set(c[0], 0, c[1]); g.add(tg);
+      let face = 0; for (const [dx, dz] of [[0,1],[0,-1],[1,0],[-1,0]]){ const n = (L.map[z + dz] || '')[x + dx]; if (n && (isFloor(n) || n === '=')){ face = Math.atan2(dx, dz); break; } }
+      const rec = {k, g:tg, sig:'', items:new THREE.Group()}; tg.add(rec.items);
+      if (k !== '~' && k !== '=') inst('k_floor', 0, 0, 0, tg);
+      const st = {'#':'k_counter', T:'k_crate', C:'k_crate', O:'k_crate', B:'k_board', S:'k_smoker', K:'k_stove', X:'k_sink', P:'k_rack', R:'k_return', D:'k_hatch', Z:'k_bin', W:'k_wall'}[k];
+      if (st) inst(st, 0, 0, 0, tg, k === 'D' ? face : (k === 'B' || k === 'K' || k === 'X') ? face : 0);
+      if (CRATE[k]){ const show = itemObj({k:CRATE[k]}); show.position.y = 1.0; show.scale.multiplyScalar(1.15); tg.add(show); }
+      if (BELT[k]){ const d = BELT[k]; inst('k_belt', 0, 0, 0, tg, Math.atan2(-d[0], -d[1])); }
+      if (k === 'K'){ rec.pot = inst('k_pot', 0, 1.1, 0, tg); rec.soup = inst('i_soup', 0, 1.2, 0, tg); rec.soup.visible = false;
+        rec.soup.traverse(m => { if (m.isMesh && m.material.name === 'mft_soup'){ m.material = m.material.clone(); rec.soupM = m.material; } }); }
+      if (k === '='){ const p = inst('k_plank', 0, 0.02, 0, tg); lv.planks.push(p); }
+      lv.tiles.push(rec);
+    }
+    /* cooks */
+    const n = G ? G.pl.length : 4;
+    for (let i = 0; i < 4; i++){ const ch = mkChar(PCOL[i]); ch.visible = i < n; lv.players.push(ch);
+      const ring = new THREE.Mesh(new THREE.RingGeometry(0.34, 0.44, 28), new THREE.MeshBasicMaterial({color:lin(PCOL[i]), transparent:true, opacity:0.85, depthWrite:false})); ring.rotation.x = -Math.PI / 2; ring.position.y = 0.03; ch.add(ring);
+      const hl = new THREE.Mesh(new THREE.BoxGeometry(1.16, 0.04, 1.16), new THREE.MeshBasicMaterial({color:lin(PCOL[i]), transparent:true, opacity:0.35, depthWrite:false})); hl.visible = false; R.scene.add(hl); lv.hl.push(hl);
+      env.add(hl); }
+    R.level = lv; R.env = env; fitCam();
+  }
+  function mkChar(shirt){ const g = new THREE.Group(); R.scene.add(g); const u = {};
+    tint(inst('char_body', 0, 0, 0, g), 'mft_shirt', shirt); inst('char_head', 0, 1.6, 0, g); inst('char_hat', 0, 1.68, 0, g);
+    const joint = (n, x, y) => { const p = new THREE.Group(); p.position.set(x, y, 0); g.add(p); tint(inst(n, 0, 0, 0, p), 'mft_shirt', shirt); return p; };
+    u.legL = joint('char_leg', -0.09, 0.8); u.legR = joint('char_leg', 0.09, 0.8); u.armL = joint('char_arm', -0.238, 1.3); u.armR = joint('char_arm', 0.238, 1.3);
+    u.hold = new THREE.Group(); u.hold.position.set(0, 0.92, 0.42); g.add(u.hold); u.sig = '';
+    g.userData = u; g.scale.setScalar(0.78); return g; }
+  /* item models */
+  function itemObj(it){
+    const g = new THREE.Group(); if (!it) return g;
+    const one = k => { const m = {tuna:['tuna', 0.62], loin:['i_loin'], smoked:['i_smoked'], burnt:['i_burnt'], coconut:['i_coconut'], grated:['i_grated'], onion:['i_onion'], onionc:['i_onionc']}[k];
+      if (!m) return new THREE.Group(); const o = inst(m[0], 0, 0, 0, null); if (m[1]){ o.scale.setScalar(m[1]); o.position.y = 0.1; o.rotation.y = Math.PI / 2; } R.scene.remove(o); return o; };
+    if (it.k === 'plate'){ g.add(inst('i_plate', 0, 0, 0, null));
+      if (it.c.indexOf('soup') >= 0) g.add(inst('i_bowl', 0, 0, 0, null));
+      it.c.filter(c => c !== 'soup').forEach((c, i, a) => { const o = one(c), ang = i * 2.1 + 0.4, r = a.length > 1 ? 0.1 : 0; o.position.set(Math.cos(ang) * r, 0.03 + o.position.y, Math.sin(ang) * r); o.scale.multiplyScalar(a.length > 1 ? 0.7 : 0.85); g.add(o); });
+      g.children.forEach(c => R.scene.remove(c)); }
+    else if (it.k === 'dirty'){ for (let i = 0; i < Math.min(5, it.n); i++){ const o = inst('i_dirty', 0, i * 0.045, 0, null); R.scene.remove(o); g.add(o); } }
+    else g.add(one(it.k));
+    return g;
+  }
+  const HOLD = {tuna:'🐟 raw tuna', loin:'🔪 tuna cut', smoked:'🟤 smoked fish', burnt:'⚫ burnt!', coconut:'🥥 coconut', grated:'⚪ grated coconut', onion:'🧅 onion', onionc:'🧅 chopped onion'};
+  const holdTxt = h => h.k === 'plate' ? '🍽️ ' + (h.c.length ? h.c.map(c => ING[c]).join('') : 'clean plate') : h.k === 'dirty' ? '🍽️ ' + h.n + ' dirty' : (HOLD[h.k] || h.k);
+  const sigOf = it => !it ? '' : it.k === 'plate' ? 'p:' + it.c.slice().sort().join('+') : it.k === 'dirty' ? 'd' + it.n : it.k;
+  function setItems(rec, list){                         // [{it, y, s}] — rebuilt only when the content changes
+    const sig = list.map(e => sigOf(e.it) + '@' + e.y).join('|'); if (sig === rec.sig) return; rec.sig = sig;
+    rec.items.clear(); list.forEach(e => { const o = itemObj(e.it); o.position.y = e.y; if (e.x) o.position.x = e.x; if (e.z) o.position.z = e.z; rec.items.add(o); });
+  }
+
+  /* ---------------- draw one frame from a game state (host's G or a guest's copy) ---------------- */
+  const tags = {bars:[], icos:[], names:[]};
+  function pooled(kind, cls, i){ const a = tags[kind]; if (!a[i]){ const d = document.createElement('div'); d.className = cls; if (kind === 'bars') d.appendChild(document.createElement('i')); $('tags').appendChild(d); a[i] = d; } return a[i]; }
+  function proj(x, y, z){ const v = R.v.set(x, y, z).project(R.camera); return [(v.x * 0.5 + 0.5) * R.W, (-v.y * 0.5 + 0.5) * R.H]; }
+  function draw(V, t){
+    const lv = R.level; if (!lv || !V) return; let nb = 0, ni = 0;
+    const bar = (x, y, z, f, warn) => { const d = pooled('bars', 'bar', nb++), p = proj(x, y, z); d.style.display = ''; d.style.left = p[0] + 'px'; d.style.top = p[1] + 'px'; d.firstChild.style.width = Math.min(100, f * 100) + '%'; d.classList.toggle('warn', !!warn); };
+    const ico = (x, y, z, s) => { const d = pooled('icos', 'ico', ni++), p = proj(x, y, z); d.style.display = ''; d.style.left = p[0] + 'px'; d.style.top = p[1] + 'px'; if (d.textContent !== s) d.textContent = s; };
+    V.tiles.forEach((tl, i) => { const rec = lv.tiles[i], s = tl.s, c = rec.g.position;
+      if (CRATE[tl.k]){ ico(c.x, 1.75, c.z, ING[CRATE[tl.k]]); return; }
+      if (!s){ return; }
+      if (tl.k === 'S'){ setItems(rec, s.it ? [{it:s.it, y:1.38}] : []);
+        if (s.it && s.it.k === 'loin') bar(c.x, 1.9, c.z, s.t / SMOKE_T); if (s.it && s.it.k === 'smoked' && s.t > SMOKE_BURN * 0.45){ bar(c.x, 1.9, c.z, s.t / SMOKE_BURN, true); ico(c.x, 2.4, c.z, '⚠️'); } if (s.it && s.it.k === 'burnt') ico(c.x, 2.2, c.z, '🔥'); }
+      else if (tl.k === 'K'){ rec.soup.visible = s.n > 0; rec.soup.position.y = 1.18 + 0.1 * Math.min(s.n, 2) + (s.st === 'e' ? 0 : 0.05);
+        if (rec.soupM) rec.soupM.color.setHex(s.st === 'b' ? 0x1a120c : s.st === 'd' ? 0xd99a2a : 0xd8b48a).convertSRGBToLinear();
+        if (s.st === 'c') bar(c.x, 1.95, c.z, s.t / POT_T); if (s.st === 'd'){ ico(c.x, 2.3, c.z, '✅'); if (s.t > POT_BURN * 0.45) bar(c.x, 1.95, c.z, s.t / POT_BURN, true); }
+        if (s.st === 'b'){ ico(c.x, 2.3, c.z, '🔥'); if (s.sc > 0) bar(c.x, 1.95, c.z, s.sc); } if (s.st === 'e' && s.n > 0) ico(c.x, 2.2, c.z, s.n + '/' + POT_N); }
+      else if (tl.k === 'P') setItems(rec, Array.from({length:Math.min(6, s.n)}, (_, j) => ({it:{k:'plate', c:[]}, y:1.0 + j * 0.05})));
+      else if (tl.k === 'R') setItems(rec, s.n ? [{it:{k:'dirty', n:s.n}, y:1.02}] : []);
+      else if (tl.k === 'X'){ setItems(rec, s.d ? [{it:{k:'dirty', n:Math.min(3, s.d)}, y:0.9}] : []); if (s.w > 0) bar(c.x, 1.7, c.z, s.w); }
+      else if ('it' in s){ const y = tl.k === 'B' ? 1.04 : BELT[tl.k] ? 0.94 : 0.98, d = BELT[tl.k];
+        setItems(rec, s.it ? [{it:s.it, y, x:d ? d[0] * s.mv * TILE * 0 : 0}] : []);
+        if (d && s.it) rec.items.position.set(d[0] * s.mv * TILE, 0, d[1] * s.mv * TILE); else rec.items.position.set(0, 0, 0);
+        if (tl.k === 'B' && s.ch > 0) bar(c.x, 1.7, c.z, s.ch); }
+    });
+    lv.planks.forEach(p => { const k = V.bridge ? 0 : 1; p.position.y += ((V.bridge ? 0.02 : -0.32) - p.position.y) * 0.2; p.rotation.z += ((V.bridge ? 0 : 0.18) - p.rotation.z) * 0.2; });
+    V.pl.forEach((p, i) => { const ch = lv.players[i]; if (!ch) return; const u = ch.userData; ch.visible = true;
+      const ox = ch.position.x, oz = ch.position.z, moving = Math.hypot(p.x - (u.lx ?? p.x), p.z - (u.lz ?? p.z)) > 0.002; u.lx = p.x; u.lz = p.z;
+      ch.position.set(p.x, 0, p.z); const want = Math.atan2(p.fx, p.fz), dy = ((want - ch.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI; ch.rotation.y += dy * 0.35;
+      const sw = moving ? Math.sin(t * 12 + i) : 0; u.legL.rotation.x = sw * 0.7; u.legR.rotation.x = -sw * 0.7;
+      let aL = -sw * 0.6, aR = sw * 0.6; if (p.h){ aL = aR = -1.2; } else if (p.act){ aR = -1.1 + Math.sin(t * 16) * 0.6; aL = -0.8 + Math.sin(t * 8) * 0.2; }
+      u.armL.rotation.x = aL; u.armR.rotation.x = aR; ch.position.y = moving ? Math.abs(sw) * 0.04 : 0;
+      const sig = sigOf(p.h); if (sig !== u.sig){ u.sig = sig; u.hold.clear(); if (p.h){ const o = itemObj(p.h); o.scale.setScalar(1.4); u.hold.add(o); } }
+      const hl = lv.hl[i]; if (p.tg >= 0){ const tg = lv.tiles[p.tg].g.position; hl.visible = true; hl.position.set(tg.x, 1.0, tg.z); hl.material.opacity = 0.25 + 0.15 * Math.sin(t * 6); } else hl.visible = false;
+      const nm = pooled('names', 'nm', i), pp = proj(p.x, 2.0, p.z); nm.style.display = ''; nm.style.left = pp[0] + 'px'; nm.style.top = pp[1] + 'px'; nm.style.background = '#' + PCOL[i].toString(16).padStart(6, '0'); const lbl = esc(p.name) + (p.h ? '<small>' + holdTxt(p.h) + '</small>' : ''); if (nm._l !== lbl){ nm._l = lbl; nm.innerHTML = lbl; } });
+    for (let i = V.pl.length; i < lv.players.length; i++){ lv.players[i].visible = false; lv.hl[i].visible = false; if (tags.names[i]) tags.names[i].style.display = 'none'; }
+    for (let i = nb; i < tags.bars.length; i++) tags.bars[i].style.display = 'none';
+    for (let i = ni; i < tags.icos.length; i++) tags.icos[i].style.display = 'none';
+    if (lv.sea){ lv.sea.position.y = -0.3 + Math.sin(t * 0.8) * 0.04; }
+    R.renderer.render(R.scene, R.camera);
+    hud(V);
+  }
+  let hudSig = '';
+  function hud(V){
+    $('tm').textContent = fmtT(V.time); $('tm').style.color = V.time < 30 ? '#ff8a6a' : ''; $('sc').textContent = '🪙 ' + V.score;
+    const sig = V.orders.map(o => o.id).join(',');
+    if (sig !== hudSig){ hudSig = sig; $('orders').innerHTML = V.orders.map(o => { const r = RECIPES[o.r]; return '<div class="ord" id="o' + o.id + '"><div class="ri">' + r.ico + '</div><b>' + r.n + '</b><div class="ing">' + r.need.map(n => ING[n]).join('') + '</div><div class="tb"><i></i></div></div>'; }).join(''); }
+    V.orders.forEach(o => { const e = $('o' + o.id); if (!e) return; e.querySelector('i').style.width = Math.max(0, o.t / o.max * 100) + '%'; e.classList.toggle('late', o.t < o.max * 0.25); });
+  }
+  let lastEv = 0;
+  function events(V){ (V.ev || []).forEach(e => { if (e.id <= lastEv) return; lastEv = e.id;
+    if (e.e === 'serve'){ toast('+' + e.pts + ' ' + RECIPES[e.r].n + (e.tip >= 6 ? ' · speedy tip!' : ''), 'good'); SFX.serve(); }
+    else if (e.e === 'wrong'){ toast('Nobody ordered that', 'bad'); SFX.wrong(); }
+    else if (e.e === 'expire'){ toast(RECIPES[e.r].n + ' order lost −10', 'bad'); SFX.expire(); }
+    else if (e.e === 'burn'){ toast('🔥 Something burnt!', 'bad'); SFX.burn(); }
+    else if (e.e === 'chop') SFX.chop(); else if (e.e === 'order') SFX.order(); }); }
+
+  /* ---------------- input: keyboards, gamepads, touch pads ---------------- */
+  const keys = {};
+  addEventListener('keydown', e => { if (e.target && e.target.tagName === 'INPUT') return; keys[e.code] = true; if (/Arrow|Space/.test(e.code) && mode === 'game') e.preventDefault(); });
+  addEventListener('keyup', e => { keys[e.code] = false; });
+  const KB = [{u:['KeyW'], d:['KeyS'], l:['KeyA'], r:['KeyD'], g:['KeyE', 'Space'], a:['KeyQ', 'KeyF']},
+              {u:['ArrowUp'], d:['ArrowDown'], l:['ArrowLeft'], r:['ArrowRight'], g:['Enter', 'Slash', 'Numpad0'], a:['ShiftRight', 'Period', 'NumpadDecimal']}];
+  const SOLO = {u:['KeyW', 'ArrowUp'], d:['KeyS', 'ArrowDown'], l:['KeyA', 'ArrowLeft'], r:['KeyD', 'ArrowRight'], g:['KeyE', 'Space', 'Enter'], a:['KeyQ', 'KeyF', 'ShiftLeft', 'ShiftRight']};
+  const any = list => list.some(c => keys[c]);
+  const ctl = [0, 1, 2, 3].map(() => ({g:0, gDown:false, tm:[0, 0], tg:false, ta:false}));        // per local player: grab counter + touch state
+  function readInput(slot, scheme){
+    const c = ctl[slot]; let mx = 0, mz = 0, gd = false, ad = false;
+    if (scheme){ mx = (any(scheme.r) ? 1 : 0) - (any(scheme.l) ? 1 : 0); mz = (any(scheme.d) ? 1 : 0) - (any(scheme.u) ? 1 : 0); gd = any(scheme.g); ad = any(scheme.a); }
+    const pads = navigator.getGamepads ? navigator.getGamepads() : []; const gp = pads && pads[slot];
+    if (gp && gp.connected){ const ax = gp.axes[0] || 0, az = gp.axes[1] || 0; if (Math.hypot(ax, az) > 0.25){ mx = ax; mz = az; }
+      if (gp.buttons[12] && gp.buttons[12].pressed) mz = -1; if (gp.buttons[13] && gp.buttons[13].pressed) mz = 1; if (gp.buttons[14] && gp.buttons[14].pressed) mx = -1; if (gp.buttons[15] && gp.buttons[15].pressed) mx = 1;
+      gd = gd || !!(gp.buttons[0] && gp.buttons[0].pressed); ad = ad || !!((gp.buttons[2] && gp.buttons[2].pressed) || (gp.buttons[1] && gp.buttons[1].pressed)); }
+    if (Math.hypot(c.tm[0], c.tm[1]) > 0.1){ mx = c.tm[0]; mz = c.tm[1]; } gd = gd || c.tg; ad = ad || c.ta;
+    if (gd && !c.gDown){ c.g++; SFX.grab(); } c.gDown = gd;
+    const yw = (R && R.yaw) || 0, cy = Math.cos(yw), sy = Math.sin(yw);        // screen direction -> kitchen direction (the camera may be turned)
+    return {mx:mx * cy + mz * sy, mz:-mx * sy + mz * cy, g:c.g, a:ad ? 1 : 0};
+  }
+  function buildPads(n){                                  // on-screen controls for phones and tablets
+    const box = $('pads'); box.innerHTML = ''; if (!touch){ box.classList.remove('on'); return; } box.classList.add('on');
+    for (let i = 0; i < n; i++){ const p = document.createElement('div'); p.className = 'pad ' + (n === 1 ? 'solo' : i ? 'p2' : 'p1');
+      p.innerHTML = '<div class="who" style="background:#' + PCOL[localSlots[i]].toString(16).padStart(6, '0') + '">' + esc(localNames[i] || '') + '</div><div class="joy"><i></i></div><div class="btns"><button class="pb g" data-k="g"><span>✋</span>Grab</button><button class="pb c" data-k="a"><span>🔪</span>Chop</button></div>';
+      box.appendChild(p); const c = ctl[i], joy = p.querySelector('.joy'), knob = joy.firstChild; let id = null, ox = 0, oy = 0;
+      p.addEventListener('pointerdown', e => { const b = e.target.closest('.pb'); if (b){ b.classList.add('down'); if (b.dataset.k === 'g') c.tg = true; else c.ta = true; b.setPointerCapture(e.pointerId); b.onpointerup = b.onpointercancel = () => { b.classList.remove('down'); if (b.dataset.k === 'g') c.tg = false; else c.ta = false; }; return; }
+        if (id !== null) return; id = e.pointerId; const r = p.getBoundingClientRect(); ox = e.clientX; oy = e.clientY; joy.style.display = 'block'; joy.style.left = (ox - r.left) + 'px'; joy.style.top = (oy - r.top) + 'px'; knob.style.transform = ''; p.setPointerCapture(id); });
+      p.addEventListener('pointermove', e => { if (e.pointerId !== id) return; const dx = e.clientX - ox, dy = e.clientY - oy, m = Math.hypot(dx, dy), k = Math.min(1, m / 50); c.tm = m > 6 ? [dx / m * k, dy / m * k] : [0, 0]; knob.style.transform = 'translate(' + (c.tm[0] * 38) + 'px,' + (c.tm[1] * 38) + 'px)'; });
+      const up = e => { if (e.pointerId !== id) return; id = null; c.tm = [0, 0]; joy.style.display = 'none'; }; p.addEventListener('pointerup', up); p.addEventListener('pointercancel', up); }
+  }
+
+  /* ---------------- online rooms (PeerJS; the host runs the kitchen, guests send inputs and draw snapshots) ---------------- */
+  /* Connection helpers. Phones on mobile data often can't connect directly; a TURN relay fixes that.
+     To add one, create a free account at metered.ca (Open Relay) and paste its TURN entries into TURN below. */
+  const TURN = [];          // e.g. {urls:'turn:standard.relay.metered.ca:80', username:'…', credential:'…'}
+  const PEER_OPTS = {config:{iceServers:[{urls:'stun:stun.l.google.com:19302'}, {urls:'stun:stun.relay.metered.ca:80'}].concat(TURN)}};
+  const NET = {role:null, peer:null, conns:[], host:null, code:'', players:[], mySlot:0, lastSnap:null, timer:null};
+  function loadPeer(){ return new Promise((ok, no) => { if (window.Peer) return ok(); const s = document.createElement('script'); s.src = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js'; s.onload = ok; s.onerror = () => no(new Error('The online module could not load.')); document.head.appendChild(s); }); }
+  const mkCode = () => Array.from({length:4}, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ'[Math.floor(Math.random() * 24)]).join('');
+  async function hostRoom(){
+    netMsg('Opening a room…'); try { await loadPeer(); } catch(e){ return netMsg(e.message); }
+    NET.role = 'host'; NET.code = mkCode(); NET.players = [{name:myName, conn:null}];
+    const peer = new window.Peer('mftcoop-' + NET.code, PEER_OPTS); NET.peer = peer;
+    peer.on('open', () => menu());
+    peer.on('error', e => { if (e.type === 'unavailable-id'){ peer.destroy(); hostRoom(); } else netMsg('Online error: ' + (e.type || e.message)); });
+    peer.on('connection', conn => { conn.on('data', m => onHostMsg(conn, m)); conn.on('close', () => dropConn(conn)); conn.on('error', () => dropConn(conn)); });
+  }
+  function onHostMsg(conn, m){
+    if (m.t === 'hi'){ if (NET.players.length >= 4 || mode === 'game'){ conn.send({t:'full'}); setTimeout(() => conn.close(), 300); return; }
+      NET.players.push({name:String(m.name || 'Cook').slice(0, 16), conn}); broadcastLobby(); menu(); }
+    else if (m.t === 'in' && G){ const i = NET.players.findIndex(p => p.conn === conn); if (i >= 0 && G.pl[i]) G.pl[i].in = {mx:+m.mx || 0, mz:+m.mz || 0, g:m.g | 0, a:m.a ? 1 : 0}; }
+  }
+  function dropConn(conn){ const i = NET.players.findIndex(p => p.conn === conn); if (i < 0) return; if (mode === 'game' && G && G.pl[i]){ G.pl[i].in = {mx:0, mz:0, g:G.pl[i].lg, a:0}; toast(NET.players[i].name + ' left'); return; } NET.players.splice(i, 1); broadcastLobby(); menu(); }
+  function broadcastLobby(){ NET.players.forEach((p, i) => p.conn && p.conn.open && p.conn.send({t:'lobby', names:NET.players.map(q => q.name), slot:i, code:NET.code, stars:prog.stars})); }
+  async function joinRoom(code){
+    code = String(code || '').toUpperCase().replace(/[^A-Z]/g, ''); if (code.length !== 4) return netMsg('Room codes have 4 letters.');
+    netMsg('Joining ' + code + '…'); try { await loadPeer(); } catch(e){ return netMsg(e.message); }
+    NET.role = 'guest'; NET.code = code; const peer = new window.Peer(undefined, PEER_OPTS); NET.peer = peer;
+    setTimeout(() => { if (NET.role === 'guest' && NET.peer === peer && !(NET.host && NET.host.open)){ leaveOnline(); netMsg('Could not reach room ' + code + '. Check the code, and try with both devices on the same Wi-Fi: some mobile data networks block direct game connections.'); } }, 15000);
+    peer.on('error', e => netMsg(e.type === 'peer-unavailable' ? 'No room called ' + code + '. Check the code with your host.' : 'Online error: ' + (e.type || e.message)));
+    peer.on('open', () => { const c = peer.connect('mftcoop-' + code, {reliable:true, serialization:'json'}); NET.host = c;
+      c.on('open', () => c.send({t:'hi', name:myName}));
+      c.on('data', m => onGuestMsg(m));
+      c.on('close', () => { if (NET.role === 'guest'){ leaveOnline(); toast('The host closed the room'); menu(); } }); });
+  }
+  function onGuestMsg(m){
+    if (m.t === 'full'){ netMsg('That room is full or already cooking.'); return; }
+    if (m.t === 'lobby'){ NET.players = m.names.map(n => ({name:n})); NET.mySlot = m.slot; if (mode !== 'game') menu(); return; }
+    if (m.t === 'start'){ startView(m.li, m.names); return; }
+    if (m.t === 'st'){ NET.lastSnap = fromSnapshot(m); return; }
+  }
+  function leaveOnline(){ clearInterval(NET.timer); try { NET.peer && NET.peer.destroy(); } catch(e){} Object.assign(NET, {role:null, peer:null, host:null, players:[], lastSnap:null}); }
+  let netNote = '';
+  function netMsg(s){ netNote = s; menu(); }
+
+  /* ---------------- flow: menu → game → results ---------------- */
+  let mode = 'menu', tabSel = 'local', nLocal = 2, localSlots = [0, 1], localNames = [], curLi = 0;
+  function levelCards(canPlay){
+    const ts = totalStars(); return LEVELS.map((L, i) => { const s = prog.stars[L.id] || 0, lock = ts < L.unlock;
+      return '<div class="card lv' + (lock ? ' lock' : '') + '"><div class="em">' + L.em + '</div><div class="tx"><b>' + L.name + '</b><span>' + L.blurb + '</span><span>Orders: ' + L.recipes.map(r => RECIPES[r].ico + ' ' + RECIPES[r].n).join(' · ') + '</span>' +
+        '<div class="stars">' + [1, 2, 3].map(k => '<span class="' + (s >= k ? '' : 'off') + '">★</span>').join('') + (prog.best[L.id] ? ' <small style="color:var(--mute);font-size:12px">best ' + prog.best[L.id] + '</small>' : '') + '</div></div>' +
+        (lock ? '<button class="btn gray">🔒 ' + L.unlock + '★</button>' : canPlay ? '<button class="btn" data-a="play" data-v="' + i + '">Cook</button>' : '') + '</div>'; }).join('');
+  }
+  function menu(){
+    mode = 'menu'; closeModal(); $('menu').classList.add('on'); $('hud').classList.remove('on'); $('pads').classList.remove('on'); hideTags();
+    let h = '<div class="row" style="justify-content:space-between"><a href="index.html" class="btn ghost" style="text-decoration:none">← Island</a><span class="stars">★ ' + totalStars() + ' / ' + LEVELS.length * 3 + '</span></div>' +
+      '<h1>👨‍🍳 Co-op Kitchen</h1><p class="sub">Team up to cook Maldivian dishes against the clock. Every kitchen is split so no one can do it alone: pass food across counters, time the gangplanks, feed the conveyor. Earn up to 3 stars per kitchen; each new star sends 10 💎 pearls to your island.</p>' +
+      '<div class="card keys"><b>How to cook</b><br>Grab a fish from the 🐟 crate, chop it on a board (hold Chop), smoke it on the smoker or simmer 2 cuts in a pot, put it on a clean plate and take it to the 🔔 hatch. ' +
+      'Mas huni needs smoked fish, grated coconut and chopped onion on one plate. Wash dirty plates at the sink (hold Chop). Don\'t let food burn!</div>' +
+      '<div class="tabs"><button data-a="tab" data-v="local" class="' + (tabSel === 'local' ? 'on' : '') + '">🛋️ Same device</button><button data-a="tab" data-v="online" class="' + (tabSel === 'online' ? 'on' : '') + '">🌐 Online room</button></div>';
+    if (tabSel === 'local'){
+      h += '<div class="card"><b>Cooks</b><div class="pc" style="margin:8px 0">' + [2, 3, 4].map(n => '<button data-a="n" data-v="' + n + '" class="' + (nLocal === n ? 'on' : '') + '">' + n + ' cooks</button>').join('') + '</div>' +
+        '<div class="keys"><b style="color:#2f6fd0">Blue</b>: <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move · <kbd>E</kbd> or <kbd>Space</kbd> grab/drop · <kbd>Q</kbd> chop/wash' +
+        '<br><b style="color:#d04a3a">Red</b>: arrow keys · <kbd>Enter</kbd> or <kbd>/</kbd> grab/drop · <kbd>Right Shift</kbd> or <kbd>.</kbd> chop/wash' +
+        '<br><b style="color:#3aa05a">Green</b> and <b style="color:#c08a10">Gold</b>: game controllers 3 and 4 (A grab, X chop). Any controller also works for Blue and Red.' +
+        (touch ? '<br><b>Touch</b>: Blue and Red share the screen with left and right thumb pads, so hold the device sideways. Cooks 3 and 4 need controllers, or use an online room.' : '') + '</div></div>';
+      h += '<h2>Kitchens</h2>' + levelCards(true);
+    } else {
+      if (!NET.role){
+        h += '<div class="card"><b>Play with friends on their own phones or computers.</b><p class="keys">One person hosts and shares the 4-letter code. Everyone else joins with it. 2 to 4 cooks.</p>' +
+          '<div class="row"><span style="flex:1">Your name</span></div><input class="code" id="myname" maxlength="16" style="letter-spacing:1px;font-size:17px" value="' + esc(myName) + '">' +
+          '<button class="btn wide" data-a="host">Host a room</button><div style="height:10px"></div><input class="code" id="code" maxlength="4" placeholder="CODE"><button class="btn wide" data-a="join" style="background:#1a9c5b;box-shadow:0 3px 0 #127443">Join room</button>' +
+          (netNote ? '<p class="keys" style="color:var(--coral2)">' + esc(netNote) + '</p>' : '') + '</div>';
+      } else {
+        h += '<div class="card"><b>Room</b><div class="big">' + (NET.peer && (NET.role === 'guest' || NET.peer.open) ? NET.code : '…') + '</div><div class="plist">' +
+          NET.players.map((p, i) => '<div><i style="background:#' + PCOL[i].toString(16).padStart(6, '0') + '"></i>' + esc(p.name) + (i === 0 ? ' (host)' : '') + (NET.role === 'guest' && i === NET.mySlot ? ' · you' : '') + '</div>').join('') + '</div>' +
+          (NET.role === 'host' ? '<p class="keys">' + (NET.players.length < 2 ? 'Share the code. You need at least one more cook to start.' : 'Pick a kitchen to start everyone.') + '</p>' : '<p class="keys">Waiting for the host to pick a kitchen…</p>') +
+          '<p class="keys">Controls: <kbd>WASD</kbd> or arrows · <kbd>E</kbd>/<kbd>Space</kbd> grab · <kbd>Q</kbd>/<kbd>Shift</kbd> chop' + (touch ? ' · or the thumb pads' : '') + '</p>' +
+          '<button class="btn ghost wide" data-a="leave">Leave room</button></div>';
+        h += '<h2>Kitchens</h2>' + levelCards(NET.role === 'host' && NET.players.length >= 2);
+      }
+    }
+    $('mwrap').innerHTML = h;
+  }
+  function hideTags(){ ['bars', 'icos', 'names'].forEach(k => tags[k].forEach(d => d.style.display = 'none')); }
+  function startLocal(li){
+    curLi = li; localSlots = [0, 1, 2, 3].slice(0, nLocal); localNames = localSlots.map(i => i === 0 ? myName : PNAME[i]);
+    newGame(li, localNames); startView(li, localNames);
+  }
+  function startHost(li){
+    curLi = li; const names = NET.players.map(p => p.name); newGame(li, names); localSlots = [0]; localNames = [myName];
+    NET.players.forEach((p, i) => p.conn && p.conn.open && p.conn.send({t:'start', li, names, slot:i}));
+    clearInterval(NET.timer); NET.timer = setInterval(() => { if (!G) return; const s = snapshot(); NET.players.forEach(p => p.conn && p.conn.open && p.conn.send(s)); }, 66);
+    startView(li, names);
+  }
+  function startView(li, names){
+    curLi = li; mode = 'game'; lastEv = 0; hudSig = ''; ctl.forEach(c => { c.g = 0; c.gDown = true; c.tm = [0, 0]; c.tg = c.ta = false; }); $('menu').classList.remove('on'); $('hud').classList.add('on'); closeModal();
+    if (NET.role === 'guest'){ localSlots = [NET.mySlot]; localNames = [myName]; NET.lastSnap = null; clearInterval(NET.timer);
+      NET.timer = setInterval(() => { if (NET.host && NET.host.open){ const s = readInput(0, SOLO); NET.host.send({t:'in', mx:s.mx, mz:s.mz, g:s.g, a:s.a}); } }, 50); }
+    const tmp = G; if (NET.role === 'guest') G = {pl:names.map(n => ({name:n}))}; buildLevel(li); if (NET.role === 'guest') G = tmp;
+    buildPads(Math.min(2, localSlots.length));
+    toast(LEVELS[li].em + ' ' + LEVELS[li].name + ' — go!');
+  }
+  function finish(V){
+    mode = 'over'; const n = V.pl.length, stars = starsFor(V.li, V.score, n), L = LEVELS[V.li], prev = prog.stars[L.id] || 0;
+    let gained = 0; if (stars > prev){ gained = stars - prev; prog.stars[L.id] = stars; prog.pend += gained * 10; }
+    prog.best[L.id] = Math.max(prog.best[L.id] || 0, V.score); saveProg();
+    const th = L.stars.map(v => Math.round(v * PFACTOR[n]));
+    modal('<h3>' + L.em + ' ' + L.name + '</h3><div class="bigstars">' + [1, 2, 3].map(k => '<span id="bs' + k + '">★</span>').join('') + '</div><div class="score">🪙 ' + V.score + '</div>' +
+      '<p>' + V.served + ' dishes served · ' + V.failed + ' orders lost</p><p>Stars at ' + th.join(' / ') + ' coins for ' + n + ' cooks</p>' +
+      (gained ? '<p style="color:#1a9c5b;font-weight:800">+' + gained + ' new star' + (gained > 1 ? 's' : '') + ' · +' + gained * 10 + ' 💎 sent to your island</p>' : '') +
+      (NET.role !== 'guest' ? '<button class="btn wide" data-a="again">Cook again</button>' + (LEVELS[V.li + 1] && totalStars() >= LEVELS[V.li + 1].unlock ? '<button class="btn wide" data-a="next">Next kitchen</button>' : '') : '<p>Waiting for the host…</p>') +
+      '<button class="btn gray wide" data-a="menu">Kitchens</button>');
+    [1, 2, 3].forEach(k => setTimeout(() => { const e = $('bs' + k); if (e && stars >= k){ e.classList.add('on'); beep(600 + k * 200, 0.15); } }, 400 + k * 350));
+  }
+  function modal(h){ $('mbox').innerHTML = h; $('modal').classList.add('on'); }
+  function closeModal(){ $('modal').classList.remove('on'); }
+
+  document.addEventListener('click', e => {
+    const b = e.target.closest('[data-a]'); if (!b) return; const a = b.dataset.a, v = b.dataset.v;
+    if (AC && AC.state === 'suspended') AC.resume();
+    switch (a){
+      case 'tab': tabSel = v; netNote = ''; menu(); break;
+      case 'n': nLocal = +v; menu(); break;
+      case 'play': if (tabSel === 'online' && NET.role === 'host') startHost(+v); else startLocal(+v); break;
+      case 'host': { const i = $('myname'); if (i && i.value.trim()){ myName = i.value.trim().slice(0, 16); prog.name = myName; saveProg(); } hostRoom(); break; }
+      case 'join': { const i = $('myname'); if (i && i.value.trim()){ myName = i.value.trim().slice(0, 16); prog.name = myName; saveProg(); } joinRoom(($('code') || {}).value); break; }
+      case 'leave': leaveOnline(); netNote = ''; menu(); break;
+      case 'quit': if (NET.role === 'guest'){ leaveOnline(); } else if (NET.role === 'host'){ clearInterval(NET.timer); } G = null; menu(); if (NET.role === 'host') broadcastLobby(); break;
+      case 'again': closeModal(); if (NET.role === 'host') startHost(curLi); else startLocal(curLi); break;
+      case 'next': closeModal(); if (NET.role === 'host') startHost(curLi + 1); else startLocal(curLi + 1); break;
+      case 'menu': if (NET.role === 'host') clearInterval(NET.timer); G = null; menu(); if (NET.role === 'host') broadcastLobby(); break;
+    }
+  });
+
+  /* ---------------- main loop: fixed-step kitchen on the host, drawing everywhere ---------------- */
+  /* the kitchen ticks on its own timer, so a host whose tab is in the background (or drawing slowly) keeps everyone cooking */
+  let simLast = performance.now(), acc = 0;
+  function simTick(){
+    const now = performance.now(), dt = Math.min(0.25, (now - simLast) / 1000); simLast = now;
+    if (mode !== 'game' || NET.role === 'guest' || !G || G.over) { acc = 0; return; }
+    localSlots.forEach((slot, i) => { if (G.pl[slot]) G.pl[slot].in = readInput(i, NET.role === 'host' ? SOLO : KB[i]); });
+    acc += dt; while (acc >= 1 / 60){ step(1 / 60); acc -= 1 / 60; }
+    if (G.over){ events(G); finish(G); }                     // show results even if this tab isn't drawing
+  }
+  setInterval(simTick, 25);
+  function frame(now){
+    const t = now / 1000; simTick();
+    if (mode === 'game' || mode === 'over'){
+      if (NET.role !== 'guest' && G){ events(G); draw(G, t); if (G.over && mode === 'game') finish(G); }
+      else if (NET.role === 'guest' && NET.lastSnap){ const V = NET.lastSnap; events(V); draw(V, t); if (V.over && mode === 'game') finish(V); }
+      else if (R) R.renderer.render(R.scene, R.camera);
+    }
+    requestAnimationFrame(frame);
+  }
+  init3D(() => { menu(); requestAnimationFrame(frame); });
+  window.__COOPUI = {startLocal, menu, NET, get mode(){ return mode; }};
+})();
+</script>
+</body>
+</html>
